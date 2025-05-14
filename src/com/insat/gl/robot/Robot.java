@@ -19,10 +19,11 @@ public abstract class Robot {
     protected int heuresUtilisation;
     protected boolean enMarche;
     protected List<String> historiqueActions;
-
+    protected double totalCarbonEmitted; 
     private static final int MAX_HEURES_AVANT_MAINTENANCE = 100;
     private static final int MIN_ENERGIE_DEMARRAGE = 10;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMMM yyyy HH:mm:ss");
+    private static final double DEFAULT_CARBON_EMISSION_FACTOR = 0.5;
 
     /**
      * Constructeur pour la classe Robot.
@@ -38,6 +39,7 @@ public abstract class Robot {
         this.heuresUtilisation = 0;
         this.enMarche = false;
         this.historiqueActions = new ArrayList<>();
+        this.totalCarbonEmitted = 0.0; 
         ajouterHistorique("Robot créé");
     }
 
@@ -107,7 +109,17 @@ public abstract class Robot {
      * @param quantite La quantité d'énergie à consommer.
      */
     protected void consommerEnergie(int quantite) {
+        if (quantite <= 0) {
+            return;
+        }
+        int energieAvantConsommation = this.energie;
         this.energie = Math.max(0, this.energie - quantite);
+        int energieEffectivementConsumee = energieAvantConsommation - this.energie;
+
+        if (energieEffectivementConsumee > 0) {
+            this.totalCarbonEmitted += energieEffectivementConsumee * DEFAULT_CARBON_EMISSION_FACTOR;
+            ajouterHistorique(String.format("Énergie consommée: %d. Impact CO2: %.2fg", energieEffectivementConsumee, energieEffectivementConsumee * DEFAULT_CARBON_EMISSION_FACTOR));
+        }
     }
 
     /**
@@ -151,8 +163,8 @@ public abstract class Robot {
      */
     @Override
     public String toString() {
-        return String.format("Robot [ID: %s, Position: (%d,%d), Énergie: %d%%, Heures: %d, En Marche: %b]",
-                id, x, y, energie, heuresUtilisation, enMarche);
+        return String.format("Robot [ID: %s, Position: (%d,%d), Énergie: %d%%, Heures: %d, En Marche: %b, CO2 émis: %.2fg]",
+                id, x, y, energie, heuresUtilisation, enMarche, totalCarbonEmitted);
     }
 
     // Getters
@@ -178,5 +190,9 @@ public abstract class Robot {
 
     public boolean isEnMarche() {
         return enMarche;
+    }
+
+    public double getTotalCarbonEmitted() {
+        return totalCarbonEmitted;
     }
 }

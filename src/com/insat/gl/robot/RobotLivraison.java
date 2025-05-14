@@ -50,22 +50,23 @@ public class RobotLivraison extends RobotConnecte {
         verifierMaintenance();
 
         if (this.enLivraison) {
-            // Simule la demande de coordonnées finales via la console (pour conformité au sujet)
+            if (this.destination == null) {
+                ajouterHistorique("Erreur: En livraison mais pas de destination définie.");
+                throw new RobotException("En livraison mais aucune destination n'est définie.");
+            }
             Scanner scanner = new Scanner(System.in);
             System.out.println("Robot " + id + " est en cours de livraison vers " + destination);
-            System.out.print("Entrez la coordonnée x de la destination finale : ");
+            System.out.print("Confirmez la coordonnée x de la destination (" + this.destination + ") : ");
             int destX = scanner.nextInt();
-            System.out.print("Entrez la coordonnée y de la destination finale : ");
+            System.out.print("Confirmez la coordonnée y de la destination (" + this.destination + ") : ");
             int destY = scanner.nextInt();
+
             try {
-                deplacer(destX, destY);
-                livraisonTerminee(); // Marquer comme terminée après déplacement réussi
+                faireLivraison(destX, destY);
             } catch (RobotException e) {
-                ajouterHistorique("Échec de la finalisation de la livraison : " + e.getMessage());
                 throw e;
             }
         } else {
-            // Simule la demande de chargement via la console (pour conformité au sujet)
             Scanner scanner = new Scanner(System.in);
             System.out.print("Le robot " + id + " est disponible. Charger un nouveau colis ? (oui/non) : ");
             String reponse = scanner.nextLine().trim().toLowerCase();
@@ -90,20 +91,44 @@ public class RobotLivraison extends RobotConnecte {
     }
 
     /**
-     * Marque la livraison comme terminée et réinitialise les attributs liés au colis.
-     * Consomme l'énergie finale de livraison.
+     * Effectue la livraison d'un colis aux coordonnées spécifiées.
+     * @param destX Coordonnée x de la destination finale.
+     * @param destY Coordonnée y de la destination finale.
+     * @throws RobotException Si la livraison échoue (déplacement, énergie, etc.).
      */
-    private void livraisonTerminee() {
-        ajouterHistorique("Livraison terminée à (" + this.x + "," + this.y + ") pour la destination: " + destination);
-        this.colisActuel = null;
-        this.destination = null;
-        this.enLivraison = false;
+    public void faireLivraison(int destX, int destY) throws RobotException {
+        if (!this.enMarche) {
+            throw new RobotException("Le robot doit être démarré pour effectuer une livraison.");
+        }
+        if (!this.enLivraison || this.colisActuel == null) {
+            throw new RobotException("Le robot n'est pas en cours de livraison ou n'a pas de colis.");
+        }
+
+        ajouterHistorique("Début de la tentative de livraison du colis '" + this.colisActuel + "' à (" + destX + "," + destY + ").");
+
         try {
-             verifierEnergie(ENERGIE_LIVRAISON);
-             consommerEnergie(ENERGIE_LIVRAISON);
-             ajouterHistorique("Consommation énergie fin de livraison: " + ENERGIE_LIVRAISON + "%. Restant: " + this.energie + "%");
-        } catch (EnergieInsuffisanteException e) {
-            ajouterHistorique("Avertissement: Énergie insuffisante pour enregistrer la fin de livraison correctement.");
+            deplacer(destX, destY);
+
+            String colisLivre = this.colisActuel;
+            String destinationAtteinte = this.destination;
+
+            this.colisActuel = null;
+            this.enLivraison = false;
+            this.destination = null;
+
+            try {
+                verifierEnergie(ENERGIE_LIVRAISON);
+                consommerEnergie(ENERGIE_LIVRAISON);
+                ajouterHistorique(String.format("Livraison du colis '%s' terminée à (%d,%d) pour la destination '%s'. Énergie finale consommée: %d%%. Restant: %d%%",
+                        colisLivre, this.x, this.y, destinationAtteinte, ENERGIE_LIVRAISON, this.energie));
+            } catch (EnergieInsuffisanteException e) {
+                ajouterHistorique(String.format("Livraison du colis '%s' terminée à (%d,%d) pour '%s'. AVERTISSEMENT: Énergie insuffisante pour décompte final (%d%% requis).",
+                        colisLivre, this.x, this.y, destinationAtteinte, ENERGIE_LIVRAISON));
+            }
+
+        } catch (RobotException e) {
+            ajouterHistorique("Échec de la livraison du colis '" + this.colisActuel + "' vers (" + destX + "," + destY + ") : " + e.getMessage());
+            throw e;
         }
     }
 
@@ -146,15 +171,6 @@ public class RobotLivraison extends RobotConnecte {
 
         ajouterHistorique(String.format("Déplacement de (%d,%d) à (%d,%d). Distance: %.2f. Énergie consommée: %d%%. Heures ajoutées: %d.",
                 oldX, oldY, this.x, this.y, distance, energieRequise, heuresAjoutees));
-
-        // Si le robot était en livraison et atteint la destination exacte via cet appel, on termine la livraison.
-        // Note: La méthode effectuerTache() appelle aussi livraisonTerminee(), ce qui pourrait être redondant.
-        // Idéalement, la logique de fin de livraison devrait être centralisée.
-        if (this.enLivraison && this.x == destX && this.y == destY) {
-             // On pourrait appeler livraisonTerminee() ici, mais attention à la double consommation d'énergie
-             // si effectuerTache l'appelle aussi. La conception actuelle est un peu ambiguë.
-             // Pour l'instant, on laisse effectuerTache gérer la fin après le déplacement.
-        }
     }
 
     /**
@@ -195,7 +211,7 @@ public class RobotLivraison extends RobotConnecte {
      */
     @Override
     public String toString() {
-        String etatColis = enLivraison ? String.format("Colis: '%s', Destination: %s, EnLivraison: %b", colisActuel, destination, enLivraison) : "Disponible";
+        String etatColis = enLivraison ? String.format("Colis: '%s', Destination: %s, EnLivraison: %b", colisActuel, destination != null ? destination : "N/A", enLivraison) : "Disponible";
         String etatConnexion = connecte ? "Oui, Réseau: " + reseauConnecte : "Non";
 
         return String.format("RobotLivraison [ID: %s, Position: (%d,%d), Énergie: %d%%, Heures: %d, %s, Connecté: %s]",

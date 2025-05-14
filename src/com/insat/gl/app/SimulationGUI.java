@@ -17,6 +17,7 @@ public class SimulationGUI extends JFrame {
     private JButton createRobotButton, startRobotButton, stopRobotButton, chargeColisButton, lancerLivraisonButton, connecterButton, deconnecterButton, rechargerButton, afficherHistoriqueButton;
     private JPanel controlPanel, robotPanel, mapPanel;
     private JComboBox<String> robotSelector;
+    private JLabel carbonEmissionLabel;
 
     private List<RobotLivraison> robots;
     private RobotLivraison selectedRobot;
@@ -149,6 +150,11 @@ public class SimulationGUI extends JFrame {
         afficherHistoriqueButton = new JButton("Afficher Historique du Robot");
         afficherHistoriqueButton.addActionListener(e -> showHistory());
         line5.add(afficherHistoriqueButton);
+
+        carbonEmissionLabel = new JLabel("CO2 Émis: N/A");
+        carbonEmissionLabel.setFont(new Font("Monospaced", Font.BOLD, 12));
+        line5.add(carbonEmissionLabel);
+
         robotPanel.add(line5);
     }
 
@@ -216,6 +222,9 @@ public class SimulationGUI extends JFrame {
         simulationMap.repaint();
         if (selectedRobot != null) {
             log("Robot sélectionné: " + selectedRobot.getId());
+            carbonEmissionLabel.setText(String.format("CO2 Émis: %.2fg", selectedRobot.getTotalCarbonEmitted()));
+        } else {
+            carbonEmissionLabel.setText("CO2 Émis: N/A");
         }
     }
 
@@ -236,6 +245,12 @@ public class SimulationGUI extends JFrame {
         destYField.setEnabled(robotIsSelected);
         reseauField.setEnabled(robotIsSelected);
         rechargeField.setEnabled(robotIsSelected);
+
+        if (robotIsSelected) {
+            carbonEmissionLabel.setText(String.format("CO2 Émis: %.2fg", selectedRobot.getTotalCarbonEmitted()));
+        } else {
+            carbonEmissionLabel.setText("CO2 Émis: N/A");
+        }
     }
 
     private void handleRobotAction(Runnable action) {
@@ -247,6 +262,8 @@ public class SimulationGUI extends JFrame {
             action.run();
             log("Action réussie pour le robot " + selectedRobot.getId());
             log(selectedRobot.toString());
+            updateRobotControlsState();
+            simulationMap.repaint();
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Veuillez entrer des nombres valides pour les coordonnées ou la recharge.", "Erreur de Format", JOptionPane.ERROR_MESSAGE);
             log("Erreur Format: " + ex.getMessage());
